@@ -56,6 +56,17 @@ class Token:
         self.lexeme = lexeme
         self.line = line
     
+class TabelaSimbolo:
+    def __init__(self):
+        self.simbolos = {}
+
+    def declare(self, nome, tipo, linha):
+        if nome in self.simbolos:
+            raise Exception(f"Erro semântico: variável '{nome}' já declarada (linha {linha})")
+        self.simbolos[nome] = {"type": tipo, "linha": linha}
+
+    def exists(self, nome):
+        return nome in self.simbolos
 
 # -----------------------------
 # Estados do AFD
@@ -240,6 +251,7 @@ class Lexer:
 # ANALISADOR SINTATICO
 
 tabela: Dict[Tuple[str, str], List[str]] = {}
+
             
 def construir_tabela():
     """
@@ -400,26 +412,25 @@ def construir_tabela():
 # -----------------------------
 # Função principal de análise
 # -----------------------------
-def analisar(tokens: List[str]) -> bool:
+
+tabelaDeSimbolos = TabelaSimbolo()
+def analisar(tokens: List[Token]) -> bool:
     """
     Realiza a análise sintática LL(1) sobre a lista de tokens fornecida.
     Retorna True se a sequência for aceita pela gramática.
     """
 
     tokens = deque(tokens)  # lista de tokens
-    tokens.append("END_OF_FILE")  # marcador de fim da entrada como string
+    tokens.append(Token(TokenType.END_OF_FILE, "", tokens[-1].line if tokens else 1))  # marcador de fim
 
     pilha = deque()
     pilha.append("$")  # símbolo de fim
     pilha.append("PROG")  # símbolo inicial
 
-    i = 0
-
     while pilha:
-        i+=1
         topo = pilha[-1]   # topo da pilha
-        atual = tokens[0]  # próximo token da entrada (string)
-
+        atual_token = tokens[0]
+        atual = token_type_to_string(atual_token.type)
 
         # Caso de aceitação
         if topo == "$" and atual == "END_OF_FILE":
@@ -427,15 +438,15 @@ def analisar(tokens: List[str]) -> bool:
             return True
 
         # Se topo for terminal (começa com "KEYWORD_" ou "END_OF_FILE")
-        elif topo.startswith("KEYWORD_") or topo == "END_OF_FILE":
+        elif isinstance(topo, str) and (topo.startswith("KEYWORD_") or topo == "END_OF_FILE"):
             if topo == atual:
                 pilha.pop()
                 tokens.popleft()
             else:
-                print(f"Erro de sintaxe: token inesperado '{atual}', esperado '{topo}'")
+                print(f"Erro de sintaxe: token inesperado '{atual}' ('{atual_token.lexeme}'), esperado '{topo}' na linha {atual_token.line}")
                 return False
 
-        # Se topo for um não-terminal (string)
+        # Se topo for um não-terminal
         elif isinstance(topo, str):
             chave = (topo, atual)
             if chave in tabela:
@@ -445,13 +456,15 @@ def analisar(tokens: List[str]) -> bool:
                     if simbolo != "":  # ignora ε
                         pilha.append(simbolo)
             else:
-                print(f"Erro de sintaxe: nenhuma regra para topo '{topo}' com token '{atual}'")
+                print(f"Erro de sintaxe: nenhuma regra para topo '{topo}' com token '{atual}' na linha {atual_token.line}")
                 return False
         else:
             print(f"Erro interno: tipo desconhecido no topo da pilha '{topo}'")
             return False
 
     return False
+
+# ANALISADOR SEMANTICO
 
 
 # -----------------------------
@@ -465,22 +478,27 @@ if __name__ == "__main__":
         with open("codigoTestarp1.txt", "r", encoding="utf-8") as f:
             code = f.read()
     except FileNotFoundError:
-        print("Erro ao abrir o arquivo codigoTestar.txt")
+        print("Erro ao abrir o arquivo codigoTestarp1.txt")
         exit(1)
 
     lexer = Lexer(code)
     tokens_lexicos = []  # Armazena todos os tokens
 
-    # print("--- Análise Léxica Simplificada com Parênteses ---")
     while True:
         token = lexer.get_next_token()
-        tokens_lexicos.append(token_type_to_string(token.type))  # Armazena token
+        tokens_lexicos.append(token)
+        # Debug: mostra tokens
         # print(f"Linha {token.line}: {token_type_to_string(token.type)} -> '{token.lexeme}'")
         if token.type == TokenType.END_OF_FILE:
             break
-    # print("--- Fim da Análise ---")
+
     construir_tabela()
+
     print("--- Análise Sintática ---")
-    analisar(tokens_lexicos)
-    # print(tokens_lexicos)
+    resultado = analisar(tokens_lexicos)
+    if resultado:
+        print("Análise sintática finalizada com sucesso!")
+    else:
+        print("Análise sintática falhou.")
+
 

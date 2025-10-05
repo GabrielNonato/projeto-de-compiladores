@@ -3,6 +3,7 @@ public class Teste {
         double cont;
         double a,b,c;
         cont = 10;
+        
         while(cont > 0) {
             a = lerDouble();
             b = lerDouble();
