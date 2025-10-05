@@ -8,42 +8,39 @@ from collections import deque
 from enum import Enum, auto
 
 class TokenType(Enum):
-    # Palavras-chave
-    KEYWORD_PUBLIC = auto()     #public
-    KEYWORD_CLASS = auto()      #class
-    KEYWORD_ID = auto()         #id
-    KEYWORD_LBRACE = auto()     # {
-    KEYWORD_RBRACE = auto()     # }
-    KEYWORD_STATIC = auto()     #static
-    KEYWORD_VOID = auto()       #void
-    KEYWORD_MAIN = auto()       #main
-    KEYWORD_LPAR = auto()       # (
-    KEYWORD_RPAR = auto()       # )
-    KEYWORD_STRING = auto()     #string
-    KEYWORD_LCOL = auto()       # [
-    KEYWORD_RCOL = auto()       # ]
-    KEYWORD_COMMA = auto()      # ,
-    KEYWORD_TDOUBLE = auto()    # double
-    KEYWORD_SEMICOLON = auto()  # ;
-    KEYWORD_IF = auto()         # if
-    KEYWORD_WHILE = auto()      # while
-    KEYWORD_PRINT = auto()      # System.out.println
-    KEYWORD_ELSE = auto()       # else
-    KEYWORD_ATBR = auto()       # =
-    KEYWORD_READ = auto()       # lerDouble
-    KEYWORD_EQUAL = auto()      # ==
-    KEYWORD_DIF = auto()        # !=
-    KEYWORD_GE = auto()         # >=
-    KEYWORD_LE = auto()         # <=
-    KEYWORD_G = auto()          # >
-    KEYWORD_L = auto()          # <
-    KEYWORD_SUB = auto()        # -
-    KEYWORD_NUMBER = auto()     # numero_real
-    KEYWORD_PLUS = auto()       # +
-    KEYWORD_MULT = auto()       # *
-    KEYWORD_DIV = auto()        # /
-
-    # Fim de arquivo e Desconhecido
+    KEYWORD_PUBLIC = auto()
+    KEYWORD_CLASS = auto()
+    KEYWORD_ID = auto()
+    KEYWORD_LBRACE = auto()
+    KEYWORD_RBRACE = auto()
+    KEYWORD_STATIC = auto()
+    KEYWORD_VOID = auto()
+    KEYWORD_MAIN = auto()
+    KEYWORD_LPAR = auto()
+    KEYWORD_RPAR = auto()
+    KEYWORD_STRING = auto()
+    KEYWORD_LCOL = auto()
+    KEYWORD_RCOL = auto()
+    KEYWORD_COMMA = auto()
+    KEYWORD_TDOUBLE = auto()
+    KEYWORD_SEMICOLON = auto()
+    KEYWORD_IF = auto()
+    KEYWORD_WHILE = auto()
+    KEYWORD_PRINT = auto()
+    KEYWORD_ELSE = auto()
+    KEYWORD_ATBR = auto()
+    KEYWORD_READ = auto()
+    KEYWORD_EQUAL = auto()
+    KEYWORD_DIF = auto()
+    KEYWORD_GE = auto()
+    KEYWORD_LE = auto()
+    KEYWORD_G = auto()
+    KEYWORD_L = auto()
+    KEYWORD_SUB = auto()
+    KEYWORD_NUMBER = auto()
+    KEYWORD_PLUS = auto()
+    KEYWORD_MULT = auto()
+    KEYWORD_DIV = auto()
     END_OF_FILE = auto()
     UNKNOWN = auto()
 
@@ -55,7 +52,7 @@ class Token:
         self.type = token_type
         self.lexeme = lexeme
         self.line = line
-    
+
 class TabelaSimbolo:
     def __init__(self):
         self.simbolos = {}
@@ -87,8 +84,6 @@ class Lexer:
         self.source = source
         self.index = 0
         self.line = 1
-
-        # Mapeamento de palavras-chave
         self.keywords = {
             "public": TokenType.KEYWORD_PUBLIC,
             "class": TokenType.KEYWORD_CLASS,
@@ -103,23 +98,18 @@ class Lexer:
             "System.out.println": TokenType.KEYWORD_PRINT,
             "lerDouble": TokenType.KEYWORD_READ,
         }
-    # -----------------------------
-    # Método auxiliar para ler "System.out.println"
-    # -----------------------------
+
     def _try_read_print(self):
         pos_backup = self.index
         lexeme = ""
-
         expected = ".out.println"
         for ch in expected:
             if self.is_at_end() or self.peek() != ch:
-                self.index = pos_backup  # desfaz leitura parcial
+                self.index = pos_backup
                 return ""
             lexeme += self.advance()
-
         return lexeme
 
-    # Funções auxiliares
     def peek(self):
         if self.is_at_end():
             return '\0'
@@ -141,9 +131,6 @@ class Lexer:
         while not self.is_at_end() and self.peek().isspace():
             self.advance()
 
-    # -----------------------------
-    # Função Principal de Leitura
-    # -----------------------------
     def get_next_token(self):
         self.skip_whitespace()
         if self.is_at_end():
@@ -156,7 +143,6 @@ class Lexer:
         while True:
             if self.is_at_end():
                 if state == LexerState.IDENTIFIER:
-                # Verifica se é System.out.println
                     if lexeme == "System":
                         lexeme_full = lexeme + self._try_read_print()
                         if lexeme_full == "System.out.println":
@@ -171,7 +157,6 @@ class Lexer:
 
             c = self.peek()
 
-            # Estado inicial
             if state == LexerState.START:
                 if c.isalpha():
                     lexeme += self.advance()
@@ -198,7 +183,6 @@ class Lexer:
                         '[': Token(TokenType.KEYWORD_LCOL, '[', token_start_line),
                         ']': Token(TokenType.KEYWORD_RCOL, ']', token_start_line),
                         ',': Token(TokenType.KEYWORD_COMMA, ',', token_start_line),
-                        ';': Token(TokenType.KEYWORD_SEMICOLON, ';', token_start_line),
                         '-': Token(TokenType.KEYWORD_SUB, '-', token_start_line),
                         '*': Token(TokenType.KEYWORD_MULT, '*', token_start_line),
                     }.get(c, Token(TokenType.UNKNOWN, c, token_start_line))
@@ -207,7 +191,6 @@ class Lexer:
                 if c.isalnum() or c == '_':
                     lexeme += self.advance()
                 elif lexeme == "System" and c == '.':
-                    # tenta ler "System.out.println"
                     lexeme_full = lexeme + self._try_read_print()
                     if lexeme_full == "System.out.println":
                         return Token(TokenType.KEYWORD_PRINT, lexeme_full, token_start_line)
@@ -215,7 +198,6 @@ class Lexer:
                         return Token(TokenType.KEYWORD_ID, lexeme_full, token_start_line)
                 else:
                     return Token(self.keywords.get(lexeme, TokenType.KEYWORD_ID), lexeme, token_start_line)
-
 
             elif state == LexerState.RELATIONAL_OP:
                 c = self.peek()
@@ -237,7 +219,7 @@ class Lexer:
             elif state == LexerState.NUMBER:
                 if c.isdigit():
                     lexeme += self.advance()
-                elif c == '.' and '.' not in lexeme:  # allow only one dot
+                elif c == '.' and '.' not in lexeme:
                     lexeme += self.advance()
                 else:
                     return Token(TokenType.KEYWORD_NUMBER, lexeme, token_start_line)
@@ -247,12 +229,12 @@ class Lexer:
                     lexeme += self.advance()
                     return Token(TokenType.KEYWORD_EQUAL, lexeme, token_start_line)
                 return Token(TokenType.KEYWORD_ATBR, lexeme, token_start_line)
-            
-# ANALISADOR SINTATICO
+
+# ----------------------------------------------------------------
+# Tabela LL(1) e função construir_tabela permanece igual ao seu código
+# ----------------------------------------------------------------
 
 tabela: Dict[Tuple[str, str], List[str]] = {}
-
-            
 def construir_tabela():
     """
     Constrói a tabela LL(1) com base nas produções da gramática.
@@ -410,34 +392,57 @@ def construir_tabela():
     tabela[("OP_MUL", "KEYWORD_DIV")] = ["KEYWORD_DIV"]
 
 # -----------------------------
-# Função principal de análise
+# Analisador Semântico Integrado
 # -----------------------------
-
 tabelaDeSimbolos = TabelaSimbolo()
+variaveisDeclaradas = set()
+
+def verificar_declaracao(token):
+    if not tabelaDeSimbolos.exists(token.lexeme):
+        raise Exception(f"Erro semântico: variável '{token.lexeme}' usada antes de ser declarada (linha {token.line})")
+
 def analisar(tokens: List[Token]) -> bool:
-    """
-    Realiza a análise sintática LL(1) sobre a lista de tokens fornecida.
-    Retorna True se a sequência for aceita pela gramática.
-    """
-
-    tokens = deque(tokens)  # lista de tokens
-    tokens.append(Token(TokenType.END_OF_FILE, "", tokens[-1].line if tokens else 1))  # marcador de fim
-
+    tokens = deque(tokens)
+    tokens.append(Token(TokenType.END_OF_FILE, "", tokens[-1].line if tokens else 1))
     pilha = deque()
-    pilha.append("$")  # símbolo de fim
-    pilha.append("PROG")  # símbolo inicial
+    pilha.append("$")
+    pilha.append("PROG")
+
+    processando_declaracao = False
+    ignorando_identificadores = 2
+
 
     while pilha:
-        topo = pilha[-1]   # topo da pilha
+        topo = pilha[-1]
         atual_token = tokens[0]
         atual = token_type_to_string(atual_token.type)
 
-        # Caso de aceitação
+        if topo in ["VAR", "TIPO"]:
+            processando_declaracao = True
+
+        # Verificação semântica
+        if topo == "KEYWORD_ID":
+            if ignorando_identificadores > 0:
+                ignorando_identificadores -= 1
+            else:
+                if processando_declaracao:
+                    try:
+                        tabelaDeSimbolos.declare(atual_token.lexeme, "double", atual_token.line)
+                    except Exception as e:
+                        print(e)
+                        return False
+                else:
+                    try:
+                        verificar_declaracao(atual_token)
+                    except Exception as e:
+                        print(e)
+                        return False
+        if topo == "KEYWORD_SEMICOLON" and processando_declaracao:
+            processando_declaracao = False
+
         if topo == "$" and atual == "END_OF_FILE":
             print("✔ Análise sintática concluída com sucesso!")
             return True
-
-        # Se topo for terminal (começa com "KEYWORD_" ou "END_OF_FILE")
         elif isinstance(topo, str) and (topo.startswith("KEYWORD_") or topo == "END_OF_FILE"):
             if topo == atual:
                 pilha.pop()
@@ -445,15 +450,13 @@ def analisar(tokens: List[Token]) -> bool:
             else:
                 print(f"Erro de sintaxe: token inesperado '{atual}' ('{atual_token.lexeme}'), esperado '{topo}' na linha {atual_token.line}")
                 return False
-
-        # Se topo for um não-terminal
         elif isinstance(topo, str):
             chave = (topo, atual)
             if chave in tabela:
                 pilha.pop()
                 producao = tabela[chave]
                 for simbolo in reversed(producao):
-                    if simbolo != "":  # ignora ε
+                    if simbolo != "":
                         pilha.append(simbolo)
             else:
                 print(f"Erro de sintaxe: nenhuma regra para topo '{topo}' com token '{atual}' na linha {atual_token.line}")
@@ -461,10 +464,7 @@ def analisar(tokens: List[Token]) -> bool:
         else:
             print(f"Erro interno: tipo desconhecido no topo da pilha '{topo}'")
             return False
-
     return False
-
-# ANALISADOR SEMANTICO
 
 
 # -----------------------------
@@ -482,23 +482,19 @@ if __name__ == "__main__":
         exit(1)
 
     lexer = Lexer(code)
-    tokens_lexicos = []  # Armazena todos os tokens
+    tokens_lexicos = []
 
     while True:
         token = lexer.get_next_token()
         tokens_lexicos.append(token)
-        # Debug: mostra tokens
-        # print(f"Linha {token.line}: {token_type_to_string(token.type)} -> '{token.lexeme}'")
         if token.type == TokenType.END_OF_FILE:
             break
 
     construir_tabela()
 
-    print("--- Análise Sintática ---")
+    print("--- Análise Sintática e Semântica ---")
     resultado = analisar(tokens_lexicos)
     if resultado:
-        print("Análise sintática finalizada com sucesso!")
+        print("Análise concluída com sucesso!")
     else:
-        print("Análise sintática falhou.")
-
-
+        print("Análise falhou.")
