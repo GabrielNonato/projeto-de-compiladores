@@ -3,9 +3,9 @@ from typing import List, Dict, Tuple
 from collections import deque
 from enum import Enum, auto
 
-# -----------------------------
+
 # Definições de Tipos de Token
-# -----------------------------
+
 class TokenType(Enum):
     KEYWORD_PUBLIC = auto()
     KEYWORD_CLASS = auto()
@@ -43,9 +43,9 @@ class TokenType(Enum):
     END_OF_FILE = auto()
     UNKNOWN = auto()
 
-# -----------------------------
+
 # Estrutura de Token
-# -----------------------------
+
 class Token:
     def __init__(self, token_type, lexeme, line):
         self.type = token_type
@@ -55,9 +55,9 @@ class Token:
     def __repr__(self):
         return f"Token({self.type.name}, '{self.lexeme}', line={self.line})"
 
-# -----------------------------
-# Tabela de Símbolos Simples
-# -----------------------------
+
+# Tabela de Símbolos
+
 class TabelaSimbolo:
     def __init__(self):
         self.simbolos = {}
@@ -70,9 +70,9 @@ class TabelaSimbolo:
     def exists(self, nome):
         return nome in self.simbolos
 
-# -----------------------------
+
 # Gerador de Código (MaqHipo)
-# -----------------------------
+
 class EntradaTS:
     def __init__(self, lexema, end_rel, prim_instr=-1):
         self.lexema = lexema
@@ -124,9 +124,9 @@ class GeradorDeCodigo:
             for instr in self.codigo_c:
                 f.write(instr + "\n")
 
-# -----------------------------
-# Estados do AFD (Lexer)
-# -----------------------------
+
+# Estados do AFD
+
 class LexerState(Enum):
     START = auto()
     IDENTIFIER = auto()
@@ -135,9 +135,8 @@ class LexerState(Enum):
     RELATIONAL_OP = auto()
     ERROR = auto()
 
-# -----------------------------
-# Classe Lexer (mantida do seu Código 2)
-# -----------------------------
+# Classe Lexer
+
 class Lexer:
     def __init__(self, source):
         self.source = source
@@ -289,9 +288,8 @@ class Lexer:
                     return Token(TokenType.KEYWORD_EQUAL, lexeme, token_start_line)
                 return Token(TokenType.KEYWORD_ATBR, lexeme, token_start_line)
 
-# ----------------------------------------------------------------
 # Tabela LL(1)
-# ----------------------------------------------------------------
+
 tabela: Dict[Tuple[str, str], List[str]] = {}
 
 def construir_tabela():
@@ -351,7 +349,7 @@ def construir_tabela():
 
     # CMD -> System.out.println ( EXPRESSAO ) ACTION_IMPR | id RESTO_IDENT
     tabela[("CMD", "KEYWORD_PRINT")] = ["KEYWORD_PRINT","KEYWORD_LPAR","EXPRESSAO","KEYWORD_RPAR","ACTION_IMPR"]
-    tabela[("CMD", "KEYWORD_ID")] = ["KEYWORD_ID","RESTO_IDENT"]  # RESTO_IDENT will contain ARMZ action
+    tabela[("CMD", "KEYWORD_ID")] = ["KEYWORD_ID","RESTO_IDENT"]  # RESTO_IDENT
 
     # PFALSA -> else { CMDS } | λ
     tabela[("PFALSA", "KEYWORD_ELSE")] = ["KEYWORD_ELSE","KEYWORD_LBRACE","CMDS","KEYWORD_RBRACE","ACTION_BACKPATCH_DSVI"]
@@ -364,7 +362,6 @@ def construir_tabela():
 
     # EXP_IDENT -> lerDouble() ACTION_LEIT | EXPRESSAO
     tabela[("EXP_IDENT", "KEYWORD_READ")] = ["KEYWORD_READ","KEYWORD_LPAR","KEYWORD_RPAR","ACTION_LEIT"]
-    # If expression starts with op_un (like '-'), ID or NUMBER or LPAR
     tabela[("EXP_IDENT", "KEYWORD_SUB")] = ["EXPRESSAO"]
     tabela[("EXP_IDENT", "KEYWORD_ID")] = ["EXPRESSAO"]
     tabela[("EXP_IDENT", "KEYWORD_NUMBER")] = ["EXPRESSAO"]
@@ -428,9 +425,9 @@ def construir_tabela():
     tabela[("OP_MUL", "KEYWORD_MULT")] = ["KEYWORD_MULT"]
     tabela[("OP_MUL", "KEYWORD_DIV")] = ["KEYWORD_DIV"]
 
-# -----------------------------
-# Analisador Semântico Integrado + Parser LL(1) (com geração integrada)
-# -----------------------------
+
+# Analisador Semântico Integrado + Analise Sintatica
+
 tabelaDeSimbolos = TabelaSimbolo()
 gerador = GeradorDeCodigo()
 
