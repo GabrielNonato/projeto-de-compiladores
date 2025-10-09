@@ -13,7 +13,7 @@ def carregar_codigo(arquivo):
         for linha in f:
             linha = linha.strip()
             if not linha or linha.startswith("#"):
-                continue  # ignora vazio ou comentários
+                continue  
 
             partes = linha.split()
             instrucao = partes[0]
@@ -22,22 +22,20 @@ def carregar_codigo(arquivo):
             if len(partes) > 1:
                 token = partes[1]
                 try:
-                    argumento = int(token)  # converte para inteiro se possível
+                    argumento = int(token)  
                 except ValueError:
-                    argumento = token       # mantém como string
+                    argumento = token       
 
             C.append(Instrucao(instrucao, argumento))
     return C
 
 if __name__ == "__main__":
-    C = carregar_codigo("programaTestep2.txt")
+    C = carregar_codigo("codigoCompilado.txt")
 
-    # Área de Dados (D): pilha de valores manipulados
-    D = []  # memória com 1000 posições
+    D = []
 
-    # Registradores especiais
-    i = 0   # registrador de programa (aponta para a instrução atual em C)
-    s = 0  # registrador topo da pilha de dados (índice em D)
+    i = 0 
+    s = 0 
 
     while i < len(C):
 

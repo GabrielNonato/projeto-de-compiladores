@@ -1,4 +1,3 @@
-import string
 from typing import List, Dict, Tuple
 from collections import deque
 from enum import Enum, auto
@@ -52,20 +51,6 @@ class Token:
         self.lexema = lexema
         self.linha = linha
 
-# Tabela de Símbolos
-
-class TabelaSimbolo:
-    def __init__(self):
-        self.simbolos = {}
-
-    def adicionarTabela(self, nome, linha):
-        if nome in self.simbolos:
-            raise Exception(f"Erro semântico: variável '{nome}' já declarada na linha {linha}")
-        self.simbolos[nome] = {"tipo": "double", "linha": linha}
-
-    def verificaExiste(self, nome):
-        return nome in self.simbolos
-
 
 # Gerador de Código (MaqHipo)
 
@@ -101,10 +86,10 @@ class GeradorDeCodigo:
     def backpatch(self, enderecoLinha, destino):
         instrucao = self.codigo_c[enderecoLinha]
         partes = instrucao.split()
-        if len(partes) == 2 and partes[1] == 'P_PENDENTE':
+        if len(partes) == 2 and partes[1] == 'END_A_DECLARAR':
             self.codigo_c[enderecoLinha] = f"{partes[0]} {destino}"
         else:
-            raise Exception(f"Erro Interno: Backpatch em instrução inválida: {instrucao}")
+            raise Exception(f"Erro Interno: instrução inválida: {instrucao}")
 
     def salvar(self, nome_arquivo="codigoCompilado.txt"):
         with open(nome_arquivo, "w", encoding="utf-8") as f:
@@ -327,7 +312,7 @@ def construir_tabela():
     # CMD_COND -> while ( CONDICAO ) GERAR_CODIGO_DSVF_WHILE { CMDS } GERAR_CODIGO_DSVI_WHILE GERAR_CODIGO_BACKPATCH_DSVF
     tabela[("CMD_COND", "KEYWORD_WHILE")] = [
         "KEYWORD_WHILE",
-        "GERAR_CODIGO_MARK_WHILE_START",
+        "GERAR_CODIGO_MARQUE_WHILE_START",
         "KEYWORD_LPAR","CONDICAO","KEYWORD_RPAR",
         "GERAR_CODIGO_DSVF_WHILE",
         "KEYWORD_LBRACE","CMDS","KEYWORD_RBRACE",
@@ -413,9 +398,8 @@ def construir_tabela():
     tabela[("OP_MUL", "KEYWORD_DIV")] = ["KEYWORD_DIV"]
 
 
-# Analisador Semântico Integrado + Analise Sintatica
+# Analisador Sintatico + O resto
 
-tabelaDeSimbolos = TabelaSimbolo()
 gerador = GeradorDeCodigo()
 
 def token_tipo_to_string(tipo):
@@ -429,35 +413,31 @@ def analisar(tokens: List[Token]) -> bool:
     pilha.append("$")
     pilha.append("PROG")
 
-    # Pilhas/estruturas auxiliares para semântica e geração
-    semPilha = []            # Armazena lexemas/valores temporários (ids, numbers, operadores)
-    dsvfPilha = []           # endereços DSVF pendentes
-    dsviPilha = []           # endereços DSVI pendentes (if)
-    while_startPilha = []    # endereços de início da condição do while
+    semPilha = []            
+    dsvfPilha = []          
+    dsviPilha = []           
+    whileComecoPilha = []    
 
-    processando_declaracao = False
+    processandoDeclaracao = False
 
     while pilha:
         topo = pilha[-1]
         tokenAtual = tokens[0]
         atual = token_tipo_to_string(tokenAtual.tipo)
 
-        # Se topo for um GERAR_CODIGO_* -> executa ação semântica / geração
+        # Se topo for um GERAR_CODIGO_
         if isinstance(topo, str) and topo.startswith("GERAR_CODIGO_"):
             pilha.pop()
             try:
-                executar_acao(topo, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens, gerador)
+                executar_acao(topo, semPilha, dsvfPilha, dsviPilha, whileComecoPilha, tokens, gerador)
             except Exception as e:
                 print(f"Erro de ação '{topo}': {e}")
                 return False
             continue
 
-        # Se topo for símbolo terminal (string começando KEYWORD_ ou END_OF_FILE)
+        # Se topo for símbolo terminal
         if isinstance(topo, str) and (topo.startswith("KEYWORD_") or topo == "END_OF_FILE"):
-            # Se tokens vazios?
             if topo == atual:
-                # Ao consumir token, executa empilhamento semântico (se necessário) antes de remover
-                # Ex: ID, NUMBER, operadores, relacionais, etc.
                 if tokenAtual.tipo == TokenType.KEYWORD_ID:
                     semPilha.append(("ID", tokenAtual.lexema, tokenAtual.linha))
                 elif tokenAtual.tipo == TokenType.KEYWORD_NUMBER:
@@ -467,16 +447,14 @@ def analisar(tokens: List[Token]) -> bool:
                                           TokenType.KEYWORD_EQUAL, TokenType.KEYWORD_DIF,
                                           TokenType.KEYWORD_GE, TokenType.KEYWORD_LE,
                                           TokenType.KEYWORD_G, TokenType.KEYWORD_L):
-                    # operador/relacional: empilha lexema (por exemplo '+', '-', '==')
                     semPilha.append(("OP", tokenAtual.lexema, tokenAtual.linha))
-                # Remove token e desempilha símbolo terminal
                 pilha.pop()
                 tokens.popleft()
-                # Ajustes do analisador semântico original
+
                 if topo in ["VAR", "TIPO"]:
-                    processando_declaracao = True
-                if topo == "KEYWORD_SEMICOLON" and processando_declaracao:
-                    processando_declaracao = False
+                    processandoDeclaracao = True
+                if topo == "KEYWORD_SEMICOLON" and processandoDeclaracao:
+                    processandoDeclaracao = False
                 continue
             else:
                 print(f"Erro de sintaxe: token inesperado '{atual}' ('{tokenAtual.lexema}'), esperado '{topo}' na linha {tokenAtual.linha}")
@@ -484,25 +462,18 @@ def analisar(tokens: List[Token]) -> bool:
             
         if topo == "$" and atual == "END_OF_FILE":
             gerador.salvar("codigoCompilado.txt")
-            print("\n--- Análise Sintática, Semântica e Geração de Código (integrada) ---")
             print("Análise concluída com sucesso!")
             break
 
-        # Se topo é um não-terminal (string)
+        # Se topo é um não-terminal
         if isinstance(topo, str):
             chave = (topo, atual)
             if chave in tabela:
                 pilha.pop()
                 producao = tabela[chave]
-                # empilha a produção em ordem inversa
                 for simbolo in reversed(producao):
                     if simbolo != "":
                         pilha.append(simbolo)
-                # Quando pushamos um não-terminal que controla declaração, o analisador
-                # original já gerencia tabelaDeSimbolos (verificação de declaração/usos).
-                # Mantemos essa verificação original: se topo for KEYWORD_ID, etc.
-                # (A lógica original do seu código 2 já fazia verificações fora deste loop;
-                #  aqui mantemos as ações e gerador integradas.)
                 continue
             else:
                 print(f"Erro de sintaxe: nenhuma regra para topo '{topo}' com token '{atual}' na linha {tokenAtual.linha}")
@@ -511,24 +482,14 @@ def analisar(tokens: List[Token]) -> bool:
         print(f"Erro interno: tipo desconhecido no topo da pilha '{topo}'")
         return False
 
-    # fim do while: se chegou aqui e tudo consumido corretamente
-    # Emitir imprime e salvar o código
-    gerador.salvar("codigoCompilado.txt")
     return True
 
-# -----------------------------
-# Implementação das ações (GERAR_CODIGO_*)
-# -----------------------------
-def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens, gerador):
-    """
-    Executa ações semânticas e de geração de código.
-    semPilha: pilha semântica com tuplas ("ID"/"NUMBER"/"OP", lexema, linha)
-    dsvfPilha, dsviPilha, while_startPilha: pilhas auxiliares
-    tokens: deque atual (para obter posição/linha quando necessário)
-    gerador: instância de GeradorDeCodigo
-    """
-    def pop_id():
-        # retira o último ID válido da semPilha
+
+# Implementação de GERAR_CODIGO_
+
+def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, whileComecoPilha, tokens, gerador):
+
+    def popId():
         for i in range(len(semPilha)-1, -1, -1):
             tag, lex, ln = semPilha[i]
             if tag == "ID":
@@ -536,7 +497,7 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
                 return lex, ln
         raise Exception("ID esperado na pilha semântica para ação")
 
-    def pop_number():
+    def popNumber():
         for i in range(len(semPilha)-1, -1, -1):
             tag, lex, ln = semPilha[i]
             if tag == "NUMBER":
@@ -544,7 +505,7 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
                 return lex, ln
         raise Exception("NUMBER esperado na pilha semântica para ação")
 
-    def pop_op():
+    def popOp():
         for i in range(len(semPilha)-1, -1, -1):
             tag, lex, ln = semPilha[i]
             if tag == "OP":
@@ -552,7 +513,6 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
                 return lex
         raise Exception("OP esperado na pilha semântica para ação")
 
-    # Map de ações
     if acao == "GERAR_CODIGO_INPP":
         gerador.adicionar("INPP")
 
@@ -560,22 +520,18 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
         gerador.adicionar("PARA")
 
     elif acao == "GERAR_CODIGO_DECL_VAR":
-        # O ID correspondente foi consumido anteriormente e empilhado em semPilha
-        # pop do ID e declarar na TS do gerador (adicionare ALME 1)
-        idlex, ln = pop_id()
+        idlex, ln = popId()
         gerador.declararVariavel(idlex)
 
     elif acao == "GERAR_CODIGO_CRVL":
-        # FATOR: id -> gerar CRVL pos_rel
-        idlex, ln = pop_id()
+        idlex, ln = popId()
         entrada = gerador.buscarEntrada(idlex)
         if not entrada:
             raise Exception(f"Erro semântico (gerador): variável '{idlex}' não declarada (linha {ln})")
         gerador.adicionar(f"CRVL {entrada.endRel}")
 
     elif acao == "GERAR_CODIGO_CRCT":
-        # FATOR: número -> CRCT valor
-        numlex, ln = pop_number()
+        numlex, ln = popNumber()
         gerador.adicionar(f"CRCT {numlex}")
 
     elif acao == "GERAR_CODIGO_IMPR":
@@ -585,19 +541,14 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
         gerador.adicionar("LEIT")
 
     elif acao == "GERAR_CODIGO_ARMZ":
-        # Assignment: precisa do nome do id que foi deixado na semPilha quando se chamou VAR/KEYWORD_ID em CMD
-        # Neste ponto o ID já foi consumido e colocado na semPilha anteriormente (na produção CMD -> KEYWORD_ID RESTO_IDENT)
-        # então procurar último ID
-        # NOTA: nós não removemos ID na ação RESTO_IDENT até agora; então pop_id() aqui devolve o id.
-        idlex, ln = pop_id()
+        idlex, ln = popId()
         entrada = gerador.buscarEntrada(idlex)
         if not entrada:
             raise Exception(f"Erro semântico (gerador): variável '{idlex}' não declarada (linha {ln})")
         gerador.adicionar(f"ARMZ {entrada.endRel}")
 
     elif acao == "GERAR_CODIGO_OP_AD":
-        # Opera sobre a operação aritmética binária aditiva.
-        op = pop_op()
+        op = popOp()
         if op == '+':
             gerador.adicionar("SOMA")
         elif op == '-':
@@ -606,7 +557,7 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
             raise Exception(f"Operador ad inválido: {op}")
 
     elif acao == "GERAR_CODIGO_OP_MUL":
-        op = pop_op()
+        op = popOp()
         if op == '*':
             gerador.adicionar("MULT")
         elif op == '/':
@@ -615,8 +566,7 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
             raise Exception(f"Operador mul inválido: {op}")
 
     elif acao == "GERAR_CODIGO_REL":
-        # Usada depois de CONDICAO -> EXPRESSAO RELACAO EXPRESSAO
-        rel = pop_op()
+        rel = popOp()
         op_map = {
             '<': 'CPME', '>': 'CPMA', '==': 'CPIG',
             '!=': 'CDES', '<=': 'CPMI', '>=': 'CMAI'
@@ -626,17 +576,14 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
         gerador.adicionar(op_map[rel])
 
     elif acao == "GERAR_CODIGO_DSVF":
-        # IF: adicionare DSVF P_PENDENTE e guarda endereço para backpatch
-        addr = gerador.adicionar("DSVF P_PENDENTE")
+        addr = gerador.adicionar("DSVF END_A_DECLARAR")
         dsvfPilha.append(addr)
 
     elif acao == "GERAR_CODIGO_DSVI":
-        # IF: adicionare DSVI P_PENDENTE e guarda endereço (para pular o else)
-        addr = gerador.adicionar("DSVI P_PENDENTE")
+        addr = gerador.adicionar("DSVI END_A_DECLARAR")
         dsviPilha.append(addr)
 
     elif acao == "GERAR_CODIGO_BACKPATCH_DSVF":
-        # Para IF e WHILE: backpatch DSVF com o endereço atual
         if not dsvfPilha:
             raise Exception("Backpatch DSVF sem endereço pendente.")
         addr = dsvfPilha.pop()
@@ -644,29 +591,24 @@ def executar_acao(acao, semPilha, dsvfPilha, dsviPilha, while_startPilha, tokens
         gerador.backpatch(addr, destino)
 
     elif acao == "GERAR_CODIGO_BACKPATCH_DSVI":
-        # Para o caso 'else': backpatch DSVI com o endereço atual
         if not dsviPilha:
-            # Se não há DSVI, apenas return (sem else)
             return
         addr = dsviPilha.pop()
         destino = len(gerador.codigo_c)
         gerador.backpatch(addr, destino)
 
-    elif acao == "GERAR_CODIGO_MARK_WHILE_START":
-        # Colocar endereço do início da condição (próxima instrução)
+    elif acao == "GERAR_CODIGO_MARQUE_WHILE_START":
         start = len(gerador.codigo_c)
-        while_startPilha.append(start)
+        whileComecoPilha.append(start)
 
     elif acao == "GERAR_CODIGO_DSVF_WHILE":
-        # Enquanto: depois da condição -> DSVF P_PENDENTE (loop para sair)
-        addr = gerador.adicionar("DSVF P_PENDENTE")
+        addr = gerador.adicionar("DSVF END_A_DECLARAR")
         dsvfPilha.append(addr)
 
     elif acao == "GERAR_CODIGO_DSVI_WHILE":
-        # Enquanto: ao final do corpo, gera DSVI endereco_condicao (volta para condição)
-        if not while_startPilha:
+        if not whileComecoPilha:
             raise Exception("GERAR_CODIGO_DSVI_WHILE sem marca de início do while.")
-        start_addr = while_startPilha.pop()
+        start_addr = whileComecoPilha.pop()
         gerador.adicionar(f"DSVI {start_addr}")
 
     else:
