@@ -55,10 +55,9 @@ class Token:
 # Gerador de Código (MaqHipo)
 
 class EntradaTS:
-    def __init__(self, lexema, endRel, primeiraInstrucao=-1):
+    def __init__(self, lexema, endRel):
         self.lexema = lexema
         self.endRel = endRel
-        self.primeiraInstrucao = primeiraInstrucao
 
 class GeradorDeCodigo:
     def __init__(self):
